@@ -1,0 +1,14 @@
+lt:
+  DataPage:
+    SINGULARNAME: 'Duomenų puslapis'
+    PLURALNAME: 'Duomenų puslapiai'
+    TITLE: 'Antraštė'
+    MENU_TITLE: 'Meniu antraštė'
+    URL_SEGMENT: 'URL adresas'
+    CONTENT: 'Turinys'
+    META_DESCRIPTION: 'Meta aprašymas'
+    META_KEYWORDS: 'Meta raktažodžiai'
+    SEPARATE_KEYWORDS_BY_COMMA: 'Atskirkite raktažodžius kableliu'
+    SEO: 'SEO'
+    META_PICTURE: 'Meta paveikslėlis'
+    META_PICTURE_RIGHT_TITLE: 'Paveikslėlis socialiniams puslapiams'

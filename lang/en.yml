@@ -1,0 +1,14 @@
+en:
+  DataPage:
+    SINGULARNAME: 'Data Page'
+    PLURALNAME: 'Data Pages'
+    TITLE: 'Title'
+    MENU_TITLE: 'Menu title'
+    URL_SEGMENT: 'URL address'
+    CONTENT: 'Content'
+    META_DESCRIPTION: 'Meta description'
+    META_KEYWORDS: 'Meta keywords'
+    SEPARATE_KEYWORDS_BY_COMMA: 'Separate keywords by comma'
+    SEO: 'SEO'
+    META_PICTURE: 'Meta picture'
+    META_PICTURE_RIGHT_TITLE: 'Picture for social networks'

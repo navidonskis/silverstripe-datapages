@@ -1,0 +1,6 @@
+---
+Name: datapages
+After:
+  - 'framework/*'
+  - 'cms/*'
+---
