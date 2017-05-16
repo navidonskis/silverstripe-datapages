@@ -15,3 +15,5 @@ To create your own linkable object here is an example of simple product object
 ## Todo
 
  1. Improve documentation later.
+ 2. Add versioning of the objects
+ 3. ...
