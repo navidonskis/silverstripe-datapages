@@ -12,6 +12,21 @@ To create your own linkable object here is an example of simple product object
     }
 ```
 
+## Make object searchable
+
+add this configuration to your `config.yml` to make `DataPage` fulltext searchable.
+
+```yaml
+DataPage:
+  indexes:
+    SearchFields:
+      type: fulltext
+      name: SearchFields
+      value: '"Title", "Content", "MenuTitle", "MetaDescription", "MetaKeywords"'
+  create_table_options:
+    MySQLDatabase: 'ENGINE=MyISAM'
+```
+
 ## Todo
 
  1. Improve documentation later.
