@@ -12,10 +12,12 @@
  * @property string Content
  * @property string MetaDescription
  * @property string MetaKeywords
+ * @property string CanViewType
  *
  * @method Image MetaPicture
+ * @method DataList ViewerGroups
  */
-class DataPage extends DataObject {
+class DataPage extends DataObject implements CMSPreviewable, PermissionProvider {
 
     /**
      * @var array
@@ -28,6 +30,15 @@ class DataPage extends DataObject {
         'Content'         => 'HTMLText',
         'MetaDescription' => 'Text',
         'MetaKeywords'    => 'Varchar',
+        "CanViewType"     => "Enum('Anyone, LoggedInUsers, OnlyTheseUsers, Inherit', 'Inherit')",
+    ];
+
+    /**
+     * @var array
+     * @config
+     */
+    private static $defaults = [
+        "CanViewType" => "Inherit",
     ];
 
     /**
@@ -44,6 +55,14 @@ class DataPage extends DataObject {
      */
     private static $has_one = [
         'MetaPicture' => 'Image',
+    ];
+
+    /**
+     * @var array
+     * @config
+     */
+    private static $many_many = [
+        'ViewerGroups' => 'Group',
     ];
 
     /**
@@ -93,7 +112,11 @@ class DataPage extends DataObject {
      */
     public function getCMSFields() {
         $fields = parent::getCMSFields();
-        $fields->removeByName(array_keys(static::config()->db));
+        $fields->removeByName(array_merge(array_keys(static::config()->db), [
+            'ViewerGroups',
+        ]));
+
+        $fields->findOrMakeTab('Root.Settings', $this->fieldLabel('Settings'));
         $fields->findOrMakeTab('Root.SEO', $this->fieldLabel('SEO'));
         $fields->addFieldsToTab('Root.Main', [
             \TextField::create('Title', $this->fieldLabel('Title')),
@@ -101,7 +124,6 @@ class DataPage extends DataObject {
             \TextField::create('MenuTitle', $this->fieldLabel('MenuTitle')),
             \HTMLEditorField::create('Content', $this->fieldLabel('Content'))->setRows(20),
         ]);
-
         $fields->addFieldsToTab('Root.SEO', [
             \TextareaField::create('MetaDescription', $this->fieldLabel('MetaDescription')),
             \TextField::create('MetaKeywords', $this->fieldLabel('MetaKeywords'))->setRightTitle($this->fieldLabel('SeparateKeywordsByComma')),
@@ -121,6 +143,43 @@ class DataPage extends DataObject {
             ->setAllowedMaxFileNumber(1)
             ->setRightTitle($this->fieldLabel('MetaPictureRightTitle'))
             ->setFolderName(static::config()->upload_directory);
+
+        $fields->addFieldsToTab('Root.Settings', [
+            $viewersOptionsField = new OptionsetField(
+                "CanViewType",
+                _t('SiteTree.ACCESSHEADER', "Who can view this page?")
+            ),
+            $viewerGroupsField = ListboxField::create("ViewerGroups", _t('SiteTree.VIEWERGROUPS', "Viewer Groups")),
+        ]);
+
+        $viewersOptionsSource = [];
+        $viewersOptionsSource["Inherit"] = _t('SiteTree.INHERIT', "Inherit from parent page");
+        $viewersOptionsSource["Anyone"] = _t('SiteTree.ACCESSANYONE', "Anyone");
+        $viewersOptionsSource["LoggedInUsers"] = _t('SiteTree.ACCESSLOGGEDIN', "Logged-in users");
+        $viewersOptionsSource["OnlyTheseUsers"] = _t('SiteTree.ACCESSONLYTHESE', "Only these people (choose from list)");
+        $viewersOptionsField->setSource($viewersOptionsSource);
+
+        $viewerGroupsField
+            ->setMultiple(true)
+            ->setSource($this->getMappedGroups())
+            ->setAttribute(
+                'data-placeholder',
+                _t('SiteTree.GroupPlaceholder', 'Click to select group')
+            );
+
+
+        if (class_exists('DisplayLogicFormField')) {
+            $viewerGroupsField->displayIf('CanViewType')->isEqualTo('OnlyTheseUsers');
+        }
+
+        if (! Permission::check('SITETREE_GRANT_ACCESS')) {
+            $fields->makeFieldReadonly($viewersOptionsField);
+            if ($this->CanViewType == 'OnlyTheseUsers') {
+                $fields->makeFieldReadonly($viewerGroupsField);
+            } else {
+                $fields->removeByName('ViewerGroups');
+            }
+        }
 
         $this->extend('updateCMSFields', $tabbedFields);
 
@@ -165,6 +224,15 @@ class DataPage extends DataObject {
             $this->getURLPrefix(),
             $this->URLSegment
         );
+    }
+
+    /**
+     * Set your cms edit link by overriding this method.
+     *
+     * @return string|false
+     */
+    public function CMSEditLink() {
+        return false;
     }
 
     /**
@@ -223,6 +291,7 @@ class DataPage extends DataObject {
             'SEO'                     => _t('DataPage.SEO', 'SEO'),
             'MetaPicture'             => _t('DataPage.META_PICTURE', 'Meta picture'),
             'MetaPictureRightTitle'   => _t('DataPage.META_PICTURE_RIGHT_TITLE', 'Picture for social networks'),
+            'Settings'                => _t('DataPage.SETTINGS', 'Settings'),
         ]);
     }
 
@@ -233,5 +302,134 @@ class DataPage extends DataObject {
      */
     public static function getByUrlSegment($value) {
         static::get()->filter('URLSegment', $value)->first();
+    }
+
+    /**
+     * @param bool $includeTitle
+     *
+     * @return string
+     */
+    public function MetaTags($includeTitle = true) {
+        $tags = "";
+
+        if ($includeTitle === true || $includeTitle == 'true') {
+            $tags .= "<title>".Convert::raw2xml($this->Title)."</title>\n";
+        }
+
+        $charset = Config::inst()->get('ContentNegotiator', 'encoding');
+        $tags .= "<meta http-equiv=\"Content-type\" content=\"text/html; charset=$charset\" />\n";
+        if ($this->MetaDescription) {
+            $description = Convert::raw2att($this->MetaKeywords);
+            $tags .= "<meta name=\"description\" content=\"{$description}\" />\n";
+        }
+
+        if ($this->MetaKeywords) {
+            $keywords = implode(',', $this->MetaKeywords);
+            $tags .= "<meta name=\"keywords\" content=\"{$keywords}\" />\n";
+        }
+
+        if ($this->MetaPicture()->exists()) {
+            $picture = $this->MetaPicture();
+            $contentType = mime_content_type($picture->getFullPath());
+
+            $tags .= "<meta property=\"og:image\" content=\"{$picture->getAbsoluteURL()}\" />\n";
+            $tags .= "<meta property=\"og:image:type\" content=\"{$contentType}\" />\n";
+            $tags .= "<meta property=\"og:image:width\" content=\"{$picture->getWidth()}\" />\n";
+            $tags .= "<meta property=\"og:image:height\" content=\"{$picture->getHeight()}\" />\n";
+        }
+
+        $this->extend('MetaTags', $tags);
+
+        return $tags;
+    }
+
+    public function canView($member = null) {
+        if (! $member || ! (is_a($member, 'Member')) || is_numeric($member)) {
+            $member = Member::currentUserID();
+        }
+
+        // admin override
+        if ($member && Permission::checkMember($member, ['ADMIN', 'SITETREE_VIEW_ALL'])) {
+            return true;
+        }
+
+        // Standard mechanism for accepting permission changes from extensions
+        $extended = $this->extendedCan('canView', $member);
+
+        if ($extended !== null) {
+            return $extended;
+        }
+
+        // check for empty spec
+        if (! $this->CanViewType || $this->CanViewType == 'Anyone') {
+            return true;
+        }
+
+        // check for any logged-in users
+        if ($this->CanViewType == 'LoggedInUsers' && $member) {
+            return true;
+        }
+
+        // check for specific groups
+        if ($member && is_numeric($member)) {
+            $member = DataObject::get_by_id('Member', $member);
+        }
+        if ($this->CanViewType == 'OnlyTheseUsers' && $member && $member->inGroups($this->ViewerGroups())) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function canEdit($member = null) {
+        return Permission::check('ADMIN') || Permission::check('DATAPAGE_EDIT');
+    }
+
+    public function canDelete($member = null) {
+        return Permission::check('ADMIN') || Permission::check('DATAPAGE_DELETE');
+    }
+
+    public function canCreate($member = null) {
+        return Permission::check('ADMIN') || Permission::check('DATAPAGE_CREATE');
+    }
+
+    public function canPublish($member = null) {
+        return Permission::check('ADMIN') || Permission::check('DATAPAGE_PUBLISH');
+    }
+
+    public function providePermissions() {
+        return [
+            'DATAPAGE_EDIT'    => [
+                'name'     => _t('DataPage.EDIT_DATA_PAGE', 'Edit data page'),
+                'category' => _t('DataPage.PERMISSION_CATEGORY', 'Data pages'),
+            ],
+            'DATAPAGE_DELETE'  => [
+                'name'     => _t('DataPage.DELETE_DATA_PAGE', 'Delete data page'),
+                'category' => _t('DataPage.PERMISSION_CATEGORY', 'Data pages'),
+            ],
+            'DATAPAGE_CREATE'  => [
+                'name'     => _t('DataPage.CREATE_DATA_PAGE', 'Create data page'),
+                'category' => _t('DataPage.PERMISSION_CATEGORY', 'Data pages'),
+            ],
+            'DATAPAGE_PUBLISH' => [
+                'name'     => _t('DataPage.PUBLISH_DATA_PAGE', 'Publish data page'),
+                'category' => _t('DataPage.PERMISSION_CATEGORY', 'Data pages'),
+            ],
+        ];
+    }
+
+    /**
+     * @return array
+     */
+    protected function getMappedGroups() {
+        $groupsMap = [];
+        /** @var Group $group */
+        foreach (Group::get() as $group) {
+            // Listboxfield values are escaped, use ASCII char instead of &raquo;
+            $groupsMap[$group->ID] = $group->getBreadcrumbs(' > ');
+        }
+        asort($groupsMap);
+
+        return $groupsMap;
     }
 }
