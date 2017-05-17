@@ -110,8 +110,9 @@ class DataPage extends DataObject implements CMSPreviewable, PermissionProvider 
      */
     public function summaryFields() {
         return [
-            'Title' => $this->fieldLabel('Title'),
-            'Link'  => $this->fieldLabel('URLSegment'),
+            'Title'   => $this->fieldLabel('Title'),
+            'Link'    => $this->fieldLabel('URLSegment'),
+            'Summary' => $this->fieldLabel('Content'),
         ];
     }
 
