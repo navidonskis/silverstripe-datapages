@@ -29,7 +29,7 @@ class DataPage extends DataObject implements CMSPreviewable, PermissionProvider 
         'URLSegment'      => 'Varchar(318)',
         'Content'         => 'HTMLText',
         'MetaDescription' => 'Text',
-        'MetaKeywords'    => 'Varchar',
+        'MetaKeywords'    => 'Varchar(255)',
         "CanViewType"     => "Enum('Anyone, LoggedInUsers, OnlyTheseUsers, Inherit', 'Inherit')",
     ];
 
@@ -78,6 +78,14 @@ class DataPage extends DataObject implements CMSPreviewable, PermissionProvider 
      * @config
      */
     private static $upload_directory = 'Uploads/DataPages';
+
+    /**
+     * Limit content words when collecting meta tags
+     *
+     * @var int
+     * @config
+     */
+    private static $limit_word_count = 20;
 
     /**
      * Get the user friendly singular name of this DataObject.
@@ -301,7 +309,7 @@ class DataPage extends DataObject implements CMSPreviewable, PermissionProvider 
      * @return static|false
      */
     public static function getByUrlSegment($value) {
-        static::get()->filter('URLSegment', $value)->first();
+        return static::get()->filter('URLSegment', $value)->first();
     }
 
     /**
@@ -318,18 +326,19 @@ class DataPage extends DataObject implements CMSPreviewable, PermissionProvider 
 
         $charset = Config::inst()->get('ContentNegotiator', 'encoding');
         $tags .= "<meta http-equiv=\"Content-type\" content=\"text/html; charset=$charset\" />\n";
-        if ($this->MetaDescription) {
-            $description = Convert::raw2att($this->MetaKeywords);
+
+        $description = $this->getMetaDescriptor();
+
+        if ($description) {
+            $description = Convert::raw2att($description);
             $tags .= "<meta name=\"description\" content=\"{$description}\" />\n";
         }
 
         if ($this->MetaKeywords) {
-            $keywords = implode(',', $this->MetaKeywords);
-            $tags .= "<meta name=\"keywords\" content=\"{$keywords}\" />\n";
+            $tags .= "<meta name=\"keywords\" content=\"{$this->MetaKeywords}\" />\n";
         }
 
-        if ($this->MetaPicture()->exists()) {
-            $picture = $this->MetaPicture();
+        if ($picture = $this->getMetaImage()) {
             $contentType = mime_content_type($picture->getFullPath());
 
             $tags .= "<meta property=\"og:image\" content=\"{$picture->getAbsoluteURL()}\" />\n";
@@ -341,6 +350,55 @@ class DataPage extends DataObject implements CMSPreviewable, PermissionProvider 
         $this->extend('MetaTags', $tags);
 
         return $tags;
+    }
+
+    /**
+     * Get meta picture. If you have some other image for your object,
+     * override this method to return one. Crop images which are greater than 1024px,
+     * for the performance and the quality. Facebook are happy with that quality images.
+     *
+     * @return Image|false
+     */
+    public function getMetaImage() {
+        if (($picture = $this->MetaPicture()) && $picture->exists()) {
+            if ($picture->getWidth() > 1024) {
+                return $picture->Fill(1024, 1024);
+            }
+
+            return $picture;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get description for meta tags. First checking if MetaDescription field are filled,
+     * otherwise checking the Content field and cutting by limiting word count.
+     *
+     * @return string
+     */
+    public function getMetaDescriptor() {
+        if (empty($this->MetaDescription) && ! empty($this->Content)) {
+            $content = Convert::raw2att($this->Content);
+            /** @var Varchar $content */
+            $content = DBField::create_field('Varchar', $content);
+            $content = $content->LimitWordCount(static::config()->limit_word_count);
+            $content = strip_tags(preg_replace('/<[^>]*>/', '', str_replace(["&nbsp;", "\n", "\r"], "", html_entity_decode($content, ENT_QUOTES, 'UTF-8'))));
+
+            return $content;
+        }
+
+        return $this->MetaDescription;
+    }
+
+    /**
+     * Set a page or parent object and override this method to be display
+     * for users were permissions are required.
+     *
+     * @return bool
+     */
+    public function canViewParent() {
+        return true;
     }
 
     public function canView($member = null) {
@@ -358,6 +416,10 @@ class DataPage extends DataObject implements CMSPreviewable, PermissionProvider 
 
         if ($extended !== null) {
             return $extended;
+        }
+
+        if ($this->CanViewType == 'Inherit') {
+            return $this->canViewParent();
         }
 
         // check for empty spec
