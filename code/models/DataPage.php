@@ -483,11 +483,11 @@ class DataPage extends DataObject implements CMSPreviewable, PermissionProvider 
      */
     protected function getMappedGroups() {
         $groupsMap = [];
-        /** @var Group $group */
+
         foreach (Group::get() as $group) {
-            // Listboxfield values are escaped, use ASCII char instead of &raquo;
             $groupsMap[$group->ID] = $group->getBreadcrumbs(' > ');
         }
+
         asort($groupsMap);
 
         return $groupsMap;
