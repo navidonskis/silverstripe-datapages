@@ -4,7 +4,3 @@ After:
   - 'framework/*'
   - 'cms/*'
 ---
-
-#DataPage:
-#  extensions:
-#    - Versioned('Stage','Live')
