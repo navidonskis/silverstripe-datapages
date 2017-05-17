@@ -60,6 +60,28 @@ class ProductListingPage_Controller extends Page_Controller {
 ```
 
 ```html
+<!-- ProductListingPage.ss -->
+<div class="container">
+    <article>
+        <% if $Title %><h1>$Title</h1><% end_if %>
+        <div class="content">
+            $Content
+
+            <div class="products">
+                <% loop $Products %>
+                    <div class="products__item" id="$URLSegment">
+                        <a href="$Link"><h2>$Title</h2></a>
+
+                        $Summary
+                    </div>
+                <% end_loop %>
+            </div>
+        </div>
+    </article>
+
+    $Form
+</div>
+
 <!-- ProductListingPage_product.ss -->
 <div class="container">
     <article>

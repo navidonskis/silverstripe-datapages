@@ -327,9 +327,7 @@ class DataPage extends DataObject implements CMSPreviewable, PermissionProvider 
         $charset = Config::inst()->get('ContentNegotiator', 'encoding');
         $tags .= "<meta http-equiv=\"Content-type\" content=\"text/html; charset=$charset\" />\n";
 
-        $description = $this->getMetaDescriptor();
-
-        if ($description) {
+        if ($description = $this->getSummary()) {
             $description = Convert::raw2att($description);
             $tags .= "<meta name=\"description\" content=\"{$description}\" />\n";
         }
@@ -377,7 +375,7 @@ class DataPage extends DataObject implements CMSPreviewable, PermissionProvider 
      *
      * @return string
      */
-    public function getMetaDescriptor() {
+    public function getSummary() {
         if (empty($this->MetaDescription) && ! empty($this->Content)) {
             $content = Convert::raw2att($this->Content);
             /** @var Varchar $content */
