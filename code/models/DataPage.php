@@ -205,9 +205,13 @@ class DataPage extends DataObject implements CMSPreviewable, PermissionProvider 
 
         // Fallback to generic page name if path is empty (= no valid, convertable characters)
         if (! $t || $t == '-' || $t == '-1') {
-            $t = \URLSegmentFilter::create()->filter(
-                    \FormField::name_to_label(static::class)
-                )."-{$this->ID}";
+            $t = sprintf(
+                '%s-%s',
+                \URLSegmentFilter::create()->filter(
+                    \FormField::name_to_label(get_class($this))
+                ),
+                $this->ID
+            );
         }
 
         // Hook for extensions
