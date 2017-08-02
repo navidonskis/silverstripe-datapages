@@ -190,7 +190,7 @@ class DataPage extends DataObject implements CMSPreviewable, PermissionProvider 
             }
         }
 
-        $this->extend('updateCMSFields', $tabbedFields);
+        $this->extend('updateCMSFields', $fields);
 
         return $fields;
     }
